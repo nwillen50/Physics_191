@@ -1,0 +1,14 @@
+# This file tells github which files and folders to ignore when staging commits to and pulling from our repository
+
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables (secret keys)
+.env
