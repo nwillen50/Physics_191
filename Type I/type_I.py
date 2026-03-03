@@ -6,6 +6,8 @@ import numpy as np
 from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
+from scipy.stats import t
+
 
 
 def type_I_analysis(sc_data, t=0.3, smooth = True):
@@ -75,31 +77,94 @@ def type_I_analysis(sc_data, t=0.3, smooth = True):
 
 
 
-
+# Theoretical Critical Field Model
 def critical_field_model(T, H0, Tc):
     return H0 * (1 - (T/Tc)**2)
 
 
-def meissner_plot(k_array, critical_fields, metal):
-    params, pcov = curve_fit(critical_field_model, k_array, critical_fields)
+# Data Confidence Intervals
+def compute_confidence_band(T, model, params, pcov):
 
+    # Curve fitted meissner model parameters (critical field & tempurature)
+    H0, Tc = params
+    
+    # Array of predicted critical fields in (0, T_c)
+    H = model(T, H0, Tc)
+    
+    # Linear approximating of the uncertainty in H
+
+    # Derivative of H wrt H0
+    dH_dH0 = 1 - (T/Tc)**2
+
+    # Derivative of H wrt Tc
+    dH_dTc = H0 * (2 * T**2) / Tc**3
+    
+    # Create Jacobian Matrix: rows: T points, columns: the derivatives
+    J = np.vstack((dH_dH0, dH_dTc)).T
+    
+    # Variance propagation
+
+    # Compute the variance in H
+    # Computes the variance at each point T at the same time 
+    # Include covariance term as T_c and H_0 were not found independently
+    # H_var= (dH/dH0)^2Var(H0) + (dH/dTc)^2Var(Tc) + 2(dH/dHO)(dH/dTc)Cov(H0,Tc)
+    H_var = np.sum(J @ pcov * J, axis=1)
+
+    # Compute the standard deviation in H
+    H_std = np.sqrt(H_var)
+    
+    # Degrees of freedom (data points - parameters (2))
+    # dof = len(T) - len(params)
+
+    # Student T distribution, 95% confidence interval is greater than in a typical gaussian as data amount is small
+    # tval = t.ppf(1 - alpha/2, dof)
+    
+    tval = 2
+
+    # Error range
+    delta = tval * H_std
+    
+    return H, H - delta, H + delta
+
+# Plot meissner graphs of critical field vs temperature
+def meissner_plot(k_array, critical_fields, metal):
+    
+    # Fit model to data
+    params, pcov = curve_fit(critical_field_model, k_array, critical_fields)
     H0_fit, Tc_fit = params
 
-    # 2. Extract Standard Errors (1-sigma)
+    # Parameter standard errors
     perr = np.sqrt(np.diag(pcov))
-    h0_err, tc_err = perr
+    n_sigma = 2
+    h0_err, tc_err = n_sigma * perr
 
+    # Smooth temperature range
     T_smooth = np.linspace(0, Tc_fit, 200)
 
-    plt.figure(figsize=(8,5))
+    # Compute confidence band
+    H_fit, lower, upper = compute_confidence_band(
+        T_smooth,
+        critical_field_model,
+        params,
+        pcov
+    )
 
+    # Create and size figure
+    fig = plt.figure(figsize=(8,5))
+
+    # Plot data
     plt.scatter(k_array, critical_fields)
 
+    # Plot model
     plt.plot(
         T_smooth,
-        critical_field_model(T_smooth, H0_fit, Tc_fit),
-        label=f"$H_0$ = {H0_fit:.3f}±{h0_err:.3f} kG, $T_c$ = {Tc_fit:.3f}±{tc_err:.3f} K"
+        H_fit,
+        label=f"$H_0$ = {H0_fit:.3f}±{h0_err:.3f} kG, "
+              f"$T_c$ = {Tc_fit:.3f}±{tc_err:.3f} K"
     )
+
+    # Confidence band shading
+    plt.fill_between(T_smooth, lower, upper, alpha=0.3)
 
     plt.xlabel("Temperature (K)")
     plt.ylabel("Critical Field (kG)")
@@ -109,12 +174,14 @@ def meissner_plot(k_array, critical_fields, metal):
     plt.ylim(0, H0_fit + 0.1)
 
     plt.legend(loc="upper right")
+    
+    fig.savefig(f"{metal}_meissner_effect.png", dpi=300, bbox_inches="tight")
 
     plt.show()
 
-    plt.savefig(f"{metal}_meissner_effect.png")
-    
-    return
+
+
+
 
    
 
