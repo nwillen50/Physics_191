@@ -4,9 +4,9 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# Import .txt file
+# Import .csv file
 
-df = pd.read_csv("resistivity/Sample_Trial_5.csv", sep=",")
+df = pd.read_csv("resistivity/Sample_Trial_2.csv", sep=",")
 
 temp = df["Temp"]
 resist = df["Volts(uV)"]/54.8
