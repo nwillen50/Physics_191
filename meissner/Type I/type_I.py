@@ -175,7 +175,7 @@ def meissner_plot(k_array, critical_fields, metal):
 
     plt.legend(loc="upper right")
     
-    fig.savefig(f"{metal}_meissner_effect.png", dpi=300, bbox_inches="tight")
+    fig.savefig(f"{metal}_meissner_effect.pdf", dpi=300, bbox_inches="tight")
 
     plt.show()
 
